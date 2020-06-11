@@ -1,0 +1,12 @@
+name: test
+title: test
+username:
+account: williamshih
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2436516
+bundleId: 3255386
+url: https://williamshih.shinyapps.io/test/
+when: 1591850329.39942
+asMultiple: FALSE
+asStatic: FALSE
