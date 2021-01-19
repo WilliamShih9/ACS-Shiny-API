@@ -1,0 +1,12 @@
+name: version2
+title: version2
+username:
+account: williamshih
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3454044
+bundleId: 4074467
+url: https://williamshih.shinyapps.io/version2/
+when: 1610157762.55072
+asMultiple: FALSE
+asStatic: FALSE

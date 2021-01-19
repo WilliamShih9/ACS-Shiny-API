@@ -5,8 +5,8 @@ account: williamshih
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2436516
-bundleId: 3255386
+bundleId: 3255840
 url: https://williamshih.shinyapps.io/test/
-when: 1591850329.39942
+when: 1591858519.28918
 asMultiple: FALSE
 asStatic: FALSE
