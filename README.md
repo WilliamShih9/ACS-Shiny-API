@@ -15,7 +15,7 @@ The work in progress link is https://williamshih.shinyapps.io/test/.
 
 The work in progress can only query an individual year and an individual race. 
 
-The following information is also in the "Information" tab of the application.
+The following paragraph of information below this line is also in the "Information" tab of the application.
 
 Each query takes about 1 second, so adding a large number of years, races, and 
         geographies will take an extremely long time for the data to load. Turns out 
