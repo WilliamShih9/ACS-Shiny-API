@@ -31,7 +31,7 @@ Each query takes about 1 second, so adding a large number of years, races, and
         with large population. This assumption too is wrong. Some geographies may work
         and others won't work even if the population size is large for these geographies.
     
-        Version: There are two versions of the American Community Survey 
+Version: There are two versions of the American Community Survey 
         available, the ACS 1-Year and the ACS 5-Year. The ACS 3-Year
         was discontinued years ago and is no longer available. The ACS 
         1-Year covers the year indicated, but the ACS 5-Year covers 
@@ -41,7 +41,7 @@ Each query takes about 1 second, so adding a large number of years, races, and
         That means the ACS 5-Year mostly represents 2 years prior
         to the year indicated. This is important for interpreting the data.
         
-        Category: There are four categories that were divided. If the 
+Category: There are four categories that were divided. If the 
         data was separable by race, I put it into Income By Race
         and Non-Income by Race. If the data did not have multiple tables
         for each race, I put it into Income Not By Race and Other.
@@ -53,23 +53,23 @@ Each query takes about 1 second, so adding a large number of years, races, and
         for inflation when the underlying data is for counting. So
         do not adjust for inflation if the underlying is the count.
         
-        Detailed: There is another bug for the more detailed and less detailed
+  Detailed: There is another bug for the more detailed and less detailed
         option. For some years, more detailed is available and for some
         years detailed is not available. In this case, if the option 
         that doesn't exist is selected, the program will crash.
         
-        There is a significant problem where data tables between
+  There is a significant problem where data tables between
         tables are inconsistent and will vary in their format from year
         to year.For example, despite that the table code and name are the same,
         the formatting of the table changes. In these cases, the program will crash.
         After all, the ACS was never meant to compare multiple years, so
         it is not convenient to do so.
         
-        Minimize Column Descriptions reduces the clutter of the table.
+   Minimize Column Descriptions reduces the clutter of the table.
         It was onl added because this is similar to how the data.census.gov
         website displays the data, but it is essentially pointless.
         
-        There are download buttons integrated into the data.table.
+  There are download buttons integrated into the data.table.
         The data.table can be copy and pasted, downloaded as Excel,
         downloaded as CSV, or downloaded as PDF. However,
         the data.table download does not contain the full column names,
@@ -81,7 +81,7 @@ Each query takes about 1 second, so adding a large number of years, races, and
         one name per column and the data below that (called Download Data with Column Names).
         the dataas well.
         
-        You can toggle the sidebar to make the table fullsize. This feature
+   You can toggle the sidebar to make the table fullsize. This feature
         is needed because the tables are often very wide and the 
         information in the sidebar is useless and unnecessary while reading 
         the table. Thus, I can view more infrmation in the table and graphs when the sidebar
@@ -90,14 +90,14 @@ Each query takes about 1 second, so adding a large number of years, races, and
         The size of the graph table should automatically
         adjust by pressing one the column names.
         
-        The graph options tab allow conversion from the wide table format 
+   The graph options tab allow conversion from the wide table format 
         to the long table format and also to 
         graph the data, but only for one group of variables.
         One complicated thing about these tables from the ACS is that 
         there are many sublayers. So only one sublayer of any 
         variable is allowed to be chosen to make the graph table and graph.
         
-        The graph options tab allows making for a line graph (all years possible)
+   The graph options tab allows making for a line graph (all years possible)
         and a bar graph (latest year in the query). One problem with
         these graphs is that the names get extremely long.
         Sometimes the geograph name is very long or the race label is very long.
@@ -116,11 +116,11 @@ Each query takes about 1 second, so adding a large number of years, races, and
         combine the years together. Also, all geographies and races from the 
         'Table' tab are automatically chosen for the graphs and graph table.
         
-        The graph table (underlying data for the graph) can be downloaded
+   The graph table (underlying data for the graph) can be downloaded
         as a CSV, Excel, or PDF as well. The automated graph is probably
         not optimal and a better version can be made for that specific variable.
         
-        The graph can be downloaded as a .png file. Another thing to
+  The graph can be downloaded as a .png file. Another thing to
         note about these graphs is that all the graphs for the same
         table and sublayer have the same title. So it can be possible
         to make many different graphs with the same title. There 
