@@ -1,4 +1,5 @@
 library(httr)
+library(Cairo)
 library(tidyverse)
 library(jsonlite)
 library(viridis)
@@ -265,10 +266,13 @@ get_mass_data <- function(list1, inflation = FALSE){
                data = jsonlite::fromJSON(x)
                combine = cbind(data[2, str_which(data[1,], "[0-9]E$")], 
                                data[2, str_which(data[1,], "[0-9]M$")])
+               #combine[,2] = map_chr(combine[,2], function(x){if (x == "-555555555"){return("0")} else{return(x)}})
                if (inflation){
-                 adjust = CPI[[substr(x, 29, 32)]]
-                 combine = as.character(round(as.numeric(combine)*CPI[['2019']]/adjust)) 
-               }
+                 adjust = CPI[['2019']]/CPI[[substr(x, 29, 32)]]
+                 combine[,2] = as.character(round(as.numeric(combine[,2])*adjust))
+                 combine[,1] = as.character(round(as.numeric(combine[,1])*adjust))
+                
+                }
                if (is.null(dim(combine))){
                    combine = t(as.matrix(combine))
                }
@@ -319,9 +323,8 @@ get_data <- function(link1, link2, inflation = FALSE){
 
 # Gets the list of groups (for purposes of graphing) from the results table
 getVarList <- function(names_total){
-    write.csv(names_total, file = "Test2.csvTest")
     if (ncol(names_total) == 1){
-        return(unique(names_total))
+        return(names_total[[1]])
     }
     names_remove = apply(names_total[-ncol(names_total)], 1, paste, collapse = "/")
     names_unique = unique(names_remove)
@@ -330,8 +333,13 @@ getVarList <- function(names_total){
     if (ncol(names_total) > 2){
         # Is there a subset for all of names_unique. If no sub-variables, remove
         temp = sapply(names_remove, str_count, coll(names_unique))
+        temp = as.matrix(temp)
         count = apply(temp, 1, sum)
         names_uniqueremove = names_unique[count > 2]
+    }
+    if (length(names_uniqueremove) == 0){
+        print(names_unique)
+        return(names_unique[[1]])
     }
     return(names_uniqueremove)
 }
@@ -374,7 +382,9 @@ var_group5 = sapply(group_split(acsdata_All5,Group), function(x) unique(x$var_de
 #ACS 1-Year is from 2005-2019
 #ACS 5-Year is from 2009-2019
 
-
+wrapper <- function(x, ...)({
+    paste(strwrap(x, ...), collapse = "\n")
+})
 
 
 ui <- fluidPage(
@@ -397,13 +407,14 @@ ui <- fluidPage(
             selected = "Sex By Age", width = "100%"),
         tags$div(id = "div_id"), 
             pickerInput("yr", "Year", paste0(acs5year_range),
-                           selected = "2019", multiple = TRUE, width = "100%"),
+                           selected = "2019", multiple = TRUE, width = "100%",
+                        options = list(`actions-box` = TRUE)),
             pickerInput("race", "Race", choices = NULL,
                            multiple = TRUE, width = "100%"),        
             pickerInput("geo", "Geography", names(all_codes),
                            select = "United States",
                            multiple = TRUE, options = pickerOptions(
-                               maxOptions = 3,
+                               maxOptions = 10,
                                liveSearch = TRUE
                            )),
             selectizeInput("detailed", "More Detailed", choices = NULL),
@@ -437,13 +448,126 @@ ui <- fluidPage(
                         dataTableOutput("graphtable", width = "100%")),
                 tabPanel("Graph", 
                          downloadBttn("downloadgraph", "Download Graph"),
-                         plotOutput("graphing"))
+                         plotOutput("graphing")),
+                tabPanel("Information",
+                         verbatimTextOutput("infotext"))
             )
         )
     )
 )
 
 server <- function(input, output, session){
+    output$infotext = renderText({"
+        Each query takes about 1 second, so adding a large number of years, races, and 
+        geographies will take an extremely long time for the data to load. Turns out 
+        the API system is bad for loading multiple years simulatenously, as after 
+        all, in most case, loading all the years is not very useful.
+        So this shinyapp is not very useful in reality.It was unanticipated by me
+        that it would be this inefficient to download the data from all the years from 
+        the API for any variable. Also, I thought the data tables would be 
+        consistent from year to year but they are not, which makes the program 
+        more likely to crash the more complicated the data request (especially 
+        adding multiple years and geographies) is. I only added MSAs, CSAs, and states
+        as I believed the data would be consistent for regions
+        with large population. This assumption too is wrong. Some geographies may work
+        and others won't work even if the population size is large for these geographies.
+    
+        Version: There are two versions of the American Community Survey 
+        available, the ACS 1-Year and the ACS 5-Year. The ACS 3-Year
+        was discontinued years ago and is no longer available. The ACS 
+        1-Year covers the year indicated, but the ACS 5-Year covers 
+        the year indicated and the previous years. That means that 
+        the ACS 1-Year for 2018 covers just 2018. But the ACS 5-Year 
+        for 2018 covers 2014-2018, kind of representing 2016 on average.
+        That means the ACS 5-Year mostly represents 2 years prior
+        to the year indicated. This is important for interpreting the data.
+        
+        Category: There are four categories that were divided. If the 
+        data was separable by race, I put it into Income By Race
+        and Non-Income by Race. If the data did not have multiple tables
+        for each race, I put it into Income Not By Race and Other.
+        The Income categories were meant to be categories where 
+        the 'Adjust for Inflation' option would be applicable. But there is a 
+        problem. Many of the tables that mention income have their data 
+        as counting (counting households by income), not represented as income.
+        So the 'Adjust for Inflation' option will wrongly change adjust
+        for inflation when the underlying data is for counting. So
+        do not adjust for inflation if the underlying is the count.
+        
+        Detailed: There is another bug for the more detailed and less detailed
+        option. For some years, more detailed is available and for some
+        years detailed is not available. In this case, if the option 
+        that doesn't exist is selected, the program will crash.
+        
+        There is a significant problem where data tables between
+        tables are inconsistent and will vary in their format from year
+        to year.For example, despite that the table code and name are the same,
+        the formatting of the table changes. In these cases, the program will crash.
+        After all, the ACS was never meant to compare multiple years, so
+        it is not convenient to do so.
+        
+        Minimize Column Descriptions reduces the clutter of the table.
+        It was onl added because this is similar to how the data.census.gov
+        website displays the data, but it is essentially pointless.
+        
+        There are download buttons integrated into the data.table.
+        The data.table can be copy and pasted, downloaded as Excel,
+        downloaded as CSV, or downloaded as PDF. However,
+        the data.table download does not contain the full column names,
+        since the full column names consist of multiple rows and 
+        you can only have one column name per column. Thus, there 
+        are two extra buttons: One just to download the column names
+        (called Download Column Names)
+        and one to download the column names all concanated into
+        one name per column and the data below that (called Download Data with Column Names).
+        the dataas well.
+        
+        You can toggle the sidebar to make the table fullsize. This feature
+        is needed because the tables are often very wide and the 
+        information in the sidebar is useless and unnecessary while reading 
+        the table. Thus, I can view more infrmation in the table and graphs when the sidebar
+        is toggled. The size of the table should automatically adjust when 
+        toggling the sidebar. Switch between tabs to adjust the graph. 
+        The size of the graph table should automatically
+        adjust by pressing one the column names.
+        
+        The graph options tab allow conversion from the wide table format 
+        to the long table format and also to 
+        graph the data, but only for one group of variables.
+        One complicated thing about these tables from the ACS is that 
+        there are many sublayers. So only one sublayer of any 
+        variable is allowed to be chosen to make the graph table and graph.
+        
+        The graph options tab allows making for a line graph (all years possible)
+        and a bar graph (latest year in the query). One problem with
+        these graphs is that the names get extremely long.
+        Sometimes the geograph name is very long or the race label is very long.
+        So the graph might turn out to be small relative to the graph legend
+        which is bad. If there are an extreme number of data points,
+        then the legend will overlap with the title and go offscreen.
+        This is another reason why only sublayer is allowed to chosen,
+        as these graphs get unreadable as more variables are added.
+        A line graph for just 1 year is possible but it is hard to interpret
+        the data, so a line graph should not be used for 1 year.
+        Sometimes, the graph options are glitched due to some edge case,
+        and some options that should be available are not available.
+        Sometimes, graph options can lead to crashes because of a bug in
+        the program. This is likely due to inconsistencies between different 
+        years (same problem as above) that cause problems when I try to 
+        combine the years together. Also, all geographies and races from the 
+        'Table' tab are automatically chosen for the graphs and graph table.
+        
+        The graph table (underlying data for the graph) can be downloaded
+        as a CSV, Excel, or PDF as well. The automated graph is probably
+        not optimal and a better version can be made for that specific variable.
+        
+        The graph can be downloaded as a .png file. Another thing to
+        note about these graphs is that all the graphs for the same
+        table and sublayer have the same title. So it can be possible
+        to make many different graphs with the same title. There 
+        is no good solution to this as making the graph title more
+        informative would make it way too long.
+        "})
     output$optionstext = renderText({"Choose the group of variables that you want to select.
                                     Only one group of variables can be selected. A group of variables
                                     is all the variables with the same prefix and one level down. This
@@ -544,8 +668,7 @@ server <- function(input, output, session){
         ###############
         ## This part is for determining the "More Detailed" 
         Remaining = filter(acsdata_All, type == values$version &
-                               Group == values$group & var_descriptions == input$var
-                           & year == values$year)
+                               Group == values$group & var_descriptions == input$var)
         values$buffer = Remaining
         Remaining = substring(Remaining$var_names, 1, 1)
         Details = c()
@@ -672,6 +795,9 @@ server <- function(input, output, session){
                 varcaption = levels(interaction(name, values$year, between, values$version, "/groups/", var_name, sep = ''))
                 combined = get_data(apinames[1], varcaption[1], adjust_inflation)
                 margin = combined[[1]]
+                margin = as.matrix(margin)
+                margin[,1] = str_remove_all(margin[,1], ":")
+                margin[,1] = str_remove_all(margin[,1], "2[0-9][0-9][0-9] ") 
                 actualdata = combined[[2]]
                 otherdata = get_mass_data(apinames[-1], adjust_inflation)
                 if (length(margin) > 2){
@@ -716,9 +842,11 @@ server <- function(input, output, session){
                     oldlen = length(colnames(result))
                     colnames(result)[oldlen] = "Margin of Error (90%)"
                     colnames(result)[oldlen - 1] = "Estimate"  
+                    row_keep = nrow(result)
                     if (length(apinames) > 1){
                         result = cbind(result, otherdata)
                     }
+                    result = result[1:row_keep,]
                     all_data = result
                     newlen = ncol(result)
                     for (i in (oldlen-1):newlen){
@@ -750,7 +878,7 @@ server <- function(input, output, session){
                     newlen = oldlen
                     result[,oldlen] = prettyNum(result[,len], big.mark = ",")
                 } 
-                text = paste0("Table ", var_name[1], ": ", input$var)
+                text = paste0("Table ", var_name[1], ": ", input$var, ' ', input$version)
                
                 output$title = renderText({text})
                 values$complete_data[[4]] = result[1:(oldlen-2)]
@@ -803,7 +931,7 @@ server <- function(input, output, session){
                     ))
                 }
                 values$data_complete[[1]] = result
-                values$data_complete[[2]] = paste0("Table ", var_name[1], " ", input$var)
+                values$data_complete[[2]] = paste0("Table ", var_name[1], " ", input$var, ' ', input$version)
                 num_estimates = nrow(col_labels)
                 col_labels = col_labels[c(3,2,1)]                
                 values$data_complete[[3]] = t(col_labels)
@@ -822,7 +950,6 @@ server <- function(input, output, session){
                 values$data_complete[[4]] = colnames(temp)
                 values$data_complete[[5]] = temp[1:(oldlen-2)]
                 varlist = getVarList(values$data_complete[[5]])
-                updatePickerInput(session, "vargroup", choices = varlist, selected = varlist[1])
                 if (input$simplify){
                     change = result[1:(oldlen-2)]
                     left = 1:nrow(change)
@@ -858,26 +985,24 @@ server <- function(input, output, session){
                                                  fixedColumns = list(leftColumns = oldlen - 2)))
                 output$resulttable = renderDataTable(
                     values$datatable)
-                updatePickerInput(session, "vargroup", choices = varlist, selected = NULL)
+                updatePickerInput(session, "vargroup", choices = varlist, selected = varlist[1])
                 
         }
         observeEvent(input$vargroup, {
             if (!is.null(input$vargroup) && str_length(input$vargroup) > 0){
-                write.csv(values$data_complete[[5]], file = "Test4.csv")
                 filt = apply(values$data_complete[[5]], 1, paste, collapse = "/")
                 filt = unique(filt)
                 filt = str_remove_all(filt, "/NA")
-                if (input$vargroup %in% filt){
                     slashes_count = str_count(input$vargroup, "/")
-                    print(slashes_count)
-                    print(filt)
                     vars = filt[str_count(filt, coll("/")) == (slashes_count + 1)]
-                    print(vars)
                     vars_left = str_detect(vars, pattern = coll(input$vargroup))
-                    filt = c(input$vargroup, vars[vars_left])
+                    menu = c()
+                    if (input$vargroup %in% filt){
+                        menu = c(menu, input$vargroup)
+                    }
+                    menu = c(menu, vars[vars_left])
                     updatePrettyCheckboxGroup(session, "varchart", label = "List of Variables", 
-                                              choices = filt, selected = filt)
-                }
+                                              choices = menu, selected = menu)
             }
         })
         observeEvent(input$graphupdate, {
@@ -886,91 +1011,103 @@ server <- function(input, output, session){
                 !is.null(legit) && !is.null(input$vargroup)){
                 filt = apply(values$data_complete[[5]], 1, paste, collapse = "/")
                 filt = str_remove_all(filt, "/NA")
-                if (input$vargroup %in% filt){
                     count = which(filt %in% input$varchart)
-                    print(count)
-                    data_to_graph = values$data_complete[[1]][count,]
-                    print(data_to_graph)
-                    count_layers = str_count(input$vargroup, "/") + 1
-                    other_counts = c()
-                    if (ncol(values$data_complete[[5]]) >= count_layers + 2){
-                        other_counts = c((count_layers+2):ncol(values$data_complete[[5]]))
-                    }
-                    data_to_graph = data_to_graph[-c(1:count_layers, other_counts)]
-                    transpose_data = t(data_to_graph)
-                    transpose_data = as.tibble(transpose_data)
-                    colnames(transpose_data) = transpose_data[1,]
-                    transpose_data = transpose_data[-1,]
-                    columns = t(values$data_complete[[3]])
-                    has_error = (ncol(columns) == 4)
-                    if (!has_error){
-                        colnames(columns) = c("Geography", "Race", "Year")
-                    }
-                    else{
-                        colnames(columns) = c("Geography", "Race", "Year", "Error")
-                    }
-                    data = cbind(columns, transpose_data)
-                    colnames(data) = replace_na(colnames(data), "Total")
-                    data = pivot_longer(data, cols = (ncol(columns)+1):ncol(data), names_to = "Variables")
-                    if (has_error){
-                        data = pivot_wider(data, names_from = Error)
-                        data = data %>%
-                            mutate(Estimate = as.numeric(gsub(",", "", Estimate)),
-                                   `Margin of Error (90%)` = 
-                                       as.numeric(gsub(",", "", `Margin of Error (90%)`)))
-                    }
-                    else{
-                        data = data %>%
-                            mutate(Estimate = as.numeric(gsub(",", "",value)))
-                    }
-                    text = values$data_complete[[2]]
-                    text = paste0(text, "-", input$vargroup)
-                    output$graphtitle = renderText({text})
-                    output$graphtable = renderDataTable({datatable(data,
-                                                                   rownames = FALSE,
-                                                                   extensions = c('Buttons','FixedColumns'),
-                                                                   options = list(
-                                                                       pageLength = 500,
-                                                                       dom = 'Bfrtip',
-                                                                       buttons = list(
-                                                                           list(extend = 'copy', title = text),
-                                                                           list(extend = 'csv', title = text),
-                                                                           list(extend = 'excel', title = text), 
-                                                                           list(extend = 'pdf', title = text),
-                                                                           list(extend = 'print', title = text)),
-                                                                       scrollX = TRUE,
-                                                                       autoWidth = FALSE))})
-                    values$data_complete[[6]] = data
-                    write.csv(data, file = "Test.csv")
-                    if (input$barorline == "Line Graph"){
-                        graph = ggplot(data, aes(x = Year, y = Estimate, shape = Race,
-                                                 group = interaction(Geography, Race), color = Variables)) +
-                            geom_point() +
-                            geom_line() + 
-                            theme_bw() + 
-                            scale_y_continuous(labels = scales::comma)
-                        if (has_error){
-                            graph = graph + geom_errorbar(aes(ymin = Estimate - `Margin of Error (90%)`, 
-                                                              ymax = Estimate + `Margin of Error (90%)`), color = "green")
+                    if (length(count) > 0){
+                        data_to_graph = values$data_complete[[1]][count,]
+                        count_layers = str_count(input$vargroup, "/") + 1
+                        other_counts = c()
+                        if (ncol(values$data_complete[[5]]) >= count_layers + 2){
+                            other_counts = c((count_layers+2):ncol(values$data_complete[[5]]))
                         }
-                    }
-                    else{
-                        data = dplyr::filter(data, Year == max(data$Year))
-                        graph = ggplot(data, aes(x = Variables, y = Estimate, 
-                                                 group = interaction(Geography, Race),
-                                                 fill = Race)) +
-                            geom_bar(stat = "identity") +
-                            scale_y_continuous(labels = scales::comma) +
-                            theme_bw()
-                        if (has_error){
-                            graph = graph + geom_errorbar(aes(ymin = Estimate - `Margin of Error (90%)`, 
-                                                              ymax = Estimate + `Margin of Error (90%)`), color = "green")
+                        data_to_graph = data_to_graph[-c(1:count_layers, other_counts)]
+                        transpose_data = t(data_to_graph)
+                        transpose_data = as.tibble(transpose_data)
+                        if(ncol(transpose_data) == 1 && ncol(values$data_complete[[5]]) == 1){
+                            
                         }
-                        # Bar Graph
+                        else{
+                            colnames(transpose_data) = transpose_data[1,]
+                            transpose_data = transpose_data[-1,]
+                        }
+                        columns = t(values$data_complete[[3]])
+                        has_error = (ncol(columns) == 4)
+                        if (!has_error){
+                            colnames(columns) = c("Geography", "Race", "Year")
+                        }
+                        else{
+                            colnames(columns) = c("Geography", "Race", "Year", "Error")
+                        }
+                        data = cbind(columns, transpose_data)
+                        colnames(data) = replace_na(colnames(data), "Total")
+                        data = pivot_longer(data, cols = (ncol(columns)+1):ncol(data), names_to = "Variables")
+                        if (has_error){
+                            data = pivot_wider(data, names_from = Error)
+                            data = data %>%
+                                mutate(Estimate = as.numeric(gsub(",", "", Estimate)),
+                                       Year = as.numeric(Year),
+                                       `Margin of Error (90%)` = 
+                                           as.numeric(gsub(",", "", `Margin of Error (90%)`)))
+                        }
+                        else{
+                            data = data %>%
+                                mutate(Year = as.numeric(Year),
+                                    Estimate = as.numeric(gsub(",", "",value)))
+                        }
+                        text = values$data_complete[[2]]
+                        text = paste0(text, "-", input$vargroup)
+                        output$graphtitle = renderText({text})
+                        output$graphtable = renderDataTable({datatable(data,
+                                                                       rownames = FALSE,
+                                                                       extensions = c('Buttons','FixedColumns'),
+                                                                       options = list(
+                                                                           pageLength = 500,
+                                                                           dom = 'Bfrtip',
+                                                                           buttons = list(
+                                                                               list(extend = 'copy', title = text),
+                                                                               list(extend = 'csv', title = text),
+                                                                               list(extend = 'excel', title = text), 
+                                                                               list(extend = 'pdf', title = text),
+                                                                               list(extend = 'print', title = text)),
+                                                                           scrollX = TRUE,
+                                                                           autoWidth = FALSE))})
+                        data = data %>%
+                            mutate(Variables = ifelse(Variables == "1", "Total", Variables))
+                        values$data_complete[[6]] = data
+                        if (input$barorline == "Line Graph"){
+                            graph = ggplot(data, aes(x = Year, y = Estimate, shape = Race,
+                                                     group = interaction(Geography, Race, Variables), color = interaction(Geography, Variables))) +
+                                geom_point(size = 3) +
+                                geom_line() + 
+                                theme_bw() + 
+                                scale_x_continuous(breaks = scales::pretty_breaks())+
+                                scale_y_continuous(labels = scales::comma) +
+                                ggtitle(wrapper(text, width = 90 ))
+                            if (has_error){
+                                graph = graph + geom_errorbar(aes(ymin = Estimate - `Margin of Error (90%)`, 
+                                                                  ymax = Estimate + `Margin of Error (90%)`),
+                                                              width = 0.5)
+                            }
+                        }
+                        else{
+                            data = dplyr::filter(data, Year == max(data$Year))
+                            graph = ggplot(data, aes(x = Variables, y = Estimate, 
+                                                     group = interaction(Geography, Race),
+                                                     fill = interaction(Geography, Race))) +
+                                geom_bar(stat = "identity", position = "dodge") +
+                                scale_y_continuous(labels = scales::comma) +
+                                ggtitle(wrapper(text, width = 90)) + 
+                                theme(axis.text.x = element_text(angle = 45, vjust = 1.0, hjust=1)) +
+                                theme_bw()
+                            if (has_error){
+                                graph = graph + geom_errorbar(aes(ymin = Estimate - `Margin of Error (90%)`, 
+                                                                  ymax = Estimate + `Margin of Error (90%)`), 
+                                                              width = 0.5, position = position_dodge(0.9))
+                            }
+                            # Bar Graph
+                        }
+                        values$data_complete[[7]] = graph
+                        output$graphing = renderPlot({graph})
                     }
-                    values$data_complete[[7]] = graph
-                    output$graphing = renderPlot({graph})
-                }
             }
         })
         output$downloaddata = downloadHandler(
@@ -996,7 +1133,7 @@ server <- function(input, output, session){
                 paste(values$data_complete[[2]],'-Graph.png', sep = '')
             },
             content = function(file){
-                ggsave(file, plot = values$data_complete[[7]])
+                ggsave(file, type = 'cairo', plot = values$data_complete[[7]])
             }
         )
     })
