@@ -10,10 +10,11 @@ The updated link to the application is https://williamshih.shinyapps.io/version2
 This version can have multiple years, multiple geographies, and multiple races selected. The updated 
 application can also download data, ,convert from wide format to narrow format, graph data, download the graph, and download the raw data used to make the graph.
 Also, the updated version uses a sidebar, which allows for viewing the table in full screen after toggling the sidebar.
+The updated version also adds 2019.
 
 The work in progress link is https://williamshih.shinyapps.io/test/.
 
-The work in progress can only query an individual year and an individual race. 
+The work in progress can only query an individual year and an individual race and is much slower to load initially.
 
 The following paragraph of information below this line is also in the "Information" tab of the application.
 
