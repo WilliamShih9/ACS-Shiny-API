@@ -461,16 +461,16 @@ server <- function(input, output, session){
         Each query takes about 1 second, so adding a large number of years, races, and 
         geographies will take an extremely long time for the data to load. Turns out 
         the API system is bad for loading multiple years simulatenously, as after 
-        all, in most case, loading all the years is not very useful.
-        So this shinyapp is not very useful in reality.It was unanticipated by me
+        all, in most case, loading all the years takes too long. It was unanticipated by me
         that it would be this inefficient to download the data from all the years from 
         the API for any variable. Also, I thought the data tables would be 
         consistent from year to year but they are not, which makes the program 
-        more likely to crash the more complicated the data request (especially 
+        less likely to produce a table successfully more complicated the data request (especially 
         adding multiple years and geographies) is. I only added MSAs, CSAs, and states
         as I believed the data would be consistent for regions
         with large population. This assumption too is wrong. Some geographies may work
         and others won't work even if the population size is large for these geographies.
+        If a table is not produced properly, the title of the table is replaced by an error message.
     
         Version: There are two versions of the American Community Survey 
         available, the ACS 1-Year and the ACS 5-Year. The ACS 3-Year
@@ -800,6 +800,7 @@ server <- function(input, output, session){
                 margin[,1] = str_remove_all(margin[,1], "2[0-9][0-9][0-9] ") 
                 actualdata = combined[[2]]
                 otherdata = get_mass_data(apinames[-1], adjust_inflation)
+                test = TRUE
                 if (length(margin) > 2){
                     sp = data.table::transpose(str_split(margin[,1], "!!"))[-1]
                     level = data.frame(sapply(sp,c))
@@ -825,13 +826,22 @@ server <- function(input, output, session){
                     colnames(result)[oldlen - 1] = "Estimate"  
                     row_keep = nrow(result)
                     if (length(apinames) > 1){
-                        result = cbind(result, otherdata)
+                        consistency = sapply(otherdata, nrow)
+                        compare = nrow(result)
+                        test = all(consistency %% compare == 0)
+                        if (test){
+                            result = cbind(result, otherdata)
+                            result = result[1:row_keep,]
+                            all_data = result
+                            newlen = ncol(result)
+                            for (i in (oldlen-1):newlen){
+                                result[,i] = replace_na(result[,i], "-1")
+                                result[,i] = prettyNum(result[,i],preserve.width = "common",big.mark = ",")
+                            }
+                        }
                     }
-                    result = result[1:row_keep,]
-                    all_data = result
-                    newlen = ncol(result)
-                    for (i in (oldlen-1):newlen){
-                        result[,i] = prettyNum(result[,i],preserve.width = "common",big.mark = ",")
+                    else{
+                        newlen = ncol(result)
                     }
                 } else if (length(margin) == 2){
                     sp = data.table::transpose(str_split(margin[1], "!!"))[-1]
@@ -878,115 +888,124 @@ server <- function(input, output, session){
                     newlen = oldlen
                     result[,oldlen] = prettyNum(result[,len], big.mark = ",")
                 } 
-                text = paste0("Table ", var_name[1], ": ", input$var, ' ', input$version)
-               
-                output$title = renderText({text})
-                values$complete_data[[4]] = result[1:(oldlen-2)]
-                if (input$error == TRUE){
-                    sketch = htmltools::withTags(table(
-                        class = 'display',
-                        thead(
-                            tr(
-                                lapply(colnames(result)[1:(oldlen-2)], th, rowspan = 4,
-                                       style = "border-right: solid 2px;"),
-                                lapply(geo_factors, th, colspan = 2*length(race_factors)*length(year_factors),
-                                       style = "border-right: solid 2px;"),
-                            ),
-                            tr(
-                                lapply(rep(race_factors, length(geo_factors)), th, colspan = 2*length(year_factors),
-                                       style = "border-right: solid 2px;")
-                            ),
-                            tr(
-                                lapply(rep(year_factors, length(race_factors)*length(geo_factors)), th, colspan = 2,
-                                       style = "border-right: solid 2px;")
-                            ),
-                            tr(
-                                lapply(colnames(result)[(oldlen-1):newlen], th)
-                            )
-                        )
-                    ))
+                if (!test){
+                    text = paste0("Number of rows for the tables are ", compare, ",", paste(consistency, collapse = ','),
+                                  " Tables cannot be merged. The table format
+                                  is not the same for all the geographies, races, and/or years
+                                  , so the table is invalid. The order of the number of rows
+                                  may give a clue to which geographies, races, and years are 
+                                  incompatible with each other.")
+                    output$title = renderText({text})
                 }
                 else{
-                    columns = (oldlen-1):newlen
-                    keep_columns = seq(1, length(columns), 2)
-                    result = result[c(1:(oldlen-2), columns[keep_columns])]
-                    sketch = htmltools::withTags(table(
-                        class = 'display',
-                        thead(
-                            tr(
-                                lapply(colnames(result)[1:(oldlen-2)], th, rowspan = 3,
-                                       style = "border-right: solid 2px;"),
-                                lapply(geo_factors, th, colspan = length(race_factors)*length(year_factors),
-                                       style = "border-right: solid 2px;"),
-                            ),
-                            tr(
-                                lapply(rep(race_factors, length(geo_factors)), th, colspan = length(year_factors),
-                                       style = "border-right: solid 2px;")
-                            ),
-                            tr(
-                                lapply(rep(year_factors, length(race_factors)*length(geo_factors)), th, 
-                                       style = "border-right: solid 2px;")
+                    text = paste0("Table ", var_name[1], ": ", input$var, ' ', input$version)
+                   
+                    output$title = renderText({text})
+                    values$complete_data[[4]] = result[1:(oldlen-2)]
+                    if (input$error == TRUE){
+                        sketch = htmltools::withTags(table(
+                            class = 'display',
+                            thead(
+                                tr(
+                                    lapply(colnames(result)[1:(oldlen-2)], th, rowspan = 4,
+                                           style = "border-right: solid 2px;"),
+                                    lapply(geo_factors, th, colspan = 2*length(race_factors)*length(year_factors),
+                                           style = "border-right: solid 2px;"),
+                                ),
+                                tr(
+                                    lapply(rep(race_factors, length(geo_factors)), th, colspan = 2*length(year_factors),
+                                           style = "border-right: solid 2px;")
+                                ),
+                                tr(
+                                    lapply(rep(year_factors, length(race_factors)*length(geo_factors)), th, colspan = 2,
+                                           style = "border-right: solid 2px;")
+                                ),
+                                tr(
+                                    lapply(colnames(result)[(oldlen-1):newlen], th)
+                                )
                             )
-                        )
-                    ))
-                }
-                values$data_complete[[1]] = result
-                values$data_complete[[2]] = paste0("Table ", var_name[1], " ", input$var, ' ', input$version)
-                num_estimates = nrow(col_labels)
-                col_labels = col_labels[c(3,2,1)]                
-                values$data_complete[[3]] = t(col_labels)
-                
-                if (input$error == TRUE){
-                    col_labels = cbind(V1 = 1:num_estimates, col_labels)
-                    col_labels = purrr::map_dfr(seq_len(2), ~col_labels)
-                    col_labels = arrange(col_labels, V1)
-                    col_labels = col_labels[-1]
-                    error_cols = rep.int(c("Estimate","Margin of Error (90%)"), num_estimates)
-                    values$data_complete[[3]] = t(cbind(col_labels, error_cols))
-                }        
-                temp = result
-                colnames(temp) = c(colnames(temp)[1:(oldlen-2)], 
-                                     apply(values$data_complete[[3]], 2, paste, collapse = "|"))
-                values$data_complete[[4]] = colnames(temp)
-                values$data_complete[[5]] = temp[1:(oldlen-2)]
-                varlist = getVarList(values$data_complete[[5]])
-                if (input$simplify){
-                    change = result[1:(oldlen-2)]
-                    left = 1:nrow(change)
-                    for (i in seq_along(change)){
-                        same = change[1,i]
-                        for (j in 1:(length(left)-1)){
-                            if (change[j+1,i] %in% same){
-                                change[j+1,i] = ""
-                            }
-                            else{
-                                same = change[j+1,i]
+                        ))
+                    }
+                    else{
+                        columns = (oldlen-1):newlen
+                        keep_columns = seq(1, length(columns), 2)
+                        result = result[c(1:(oldlen-2), columns[keep_columns])]
+                        sketch = htmltools::withTags(table(
+                            class = 'display',
+                            thead(
+                                tr(
+                                    lapply(colnames(result)[1:(oldlen-2)], th, rowspan = 3,
+                                           style = "border-right: solid 2px;"),
+                                    lapply(geo_factors, th, colspan = length(race_factors)*length(year_factors),
+                                           style = "border-right: solid 2px;"),
+                                ),
+                                tr(
+                                    lapply(rep(race_factors, length(geo_factors)), th, colspan = length(year_factors),
+                                           style = "border-right: solid 2px;")
+                                ),
+                                tr(
+                                    lapply(rep(year_factors, length(race_factors)*length(geo_factors)), th, 
+                                           style = "border-right: solid 2px;")
+                                )
+                            )
+                        ))
+                    }
+                    values$data_complete[[1]] = result
+                    values$data_complete[[2]] = paste0("Table ", var_name[1], " ", input$var, ' ', input$version)
+                    num_estimates = nrow(col_labels)
+                    col_labels = col_labels[c(3,2,1)]                
+                    values$data_complete[[3]] = t(col_labels)
+                    
+                    if (input$error == TRUE){
+                        col_labels = cbind(V1 = 1:num_estimates, col_labels)
+                        col_labels = purrr::map_dfr(seq_len(2), ~col_labels)
+                        col_labels = arrange(col_labels, V1)
+                        col_labels = col_labels[-1]
+                        error_cols = rep.int(c("Estimate","Margin of Error (90%)"), num_estimates)
+                        values$data_complete[[3]] = t(cbind(col_labels, error_cols))
+                    }        
+                    temp = result
+                    colnames(temp) = c(colnames(temp)[1:(oldlen-2)], 
+                                         apply(values$data_complete[[3]], 2, paste, collapse = "|"))
+                    values$data_complete[[4]] = colnames(temp)
+                    values$data_complete[[5]] = temp[1:(oldlen-2)]
+                    varlist = getVarList(values$data_complete[[5]])
+                    if (input$simplify){
+                        change = result[1:(oldlen-2)]
+                        left = 1:nrow(change)
+                        for (i in seq_along(change)){
+                            same = change[1,i]
+                            for (j in 1:(length(left)-1)){
+                                if (change[j+1,i] %in% same){
+                                    change[j+1,i] = ""
+                                }
+                                else{
+                                    same = change[j+1,i]
+                                }
                             }
                         }
+                        result[1:(oldlen-2)] = change
                     }
-                    result[1:(oldlen-2)] = change
+                    values$datatable = datatable(result, 
+                                                 rownames = FALSE,
+                                                 container = sketch,
+                                                 extensions = c('Buttons','FixedColumns'),
+                                                 options = list(
+                                                     pageLength = 999,
+                                                     dom = 'Bfrtip',
+                        buttons = list(
+                            list(extend = 'copy', title = text),
+                            list(extend = 'csv', title = text),
+                            list(extend = 'excel', title = text), 
+                            list(extend = 'pdf', title = text),
+                            list(extend = 'print', title = text)),
+                                                     scrollX = TRUE,
+                                                     autoWidth = FALSE,
+                                                     fixedColumns = list(leftColumns = oldlen - 2)))
+                    output$resulttable = renderDataTable(
+                        values$datatable)
+                    updatePickerInput(session, "vargroup", choices = varlist, selected = varlist[1])
                 }
-                values$datatable = datatable(result, 
-                                             rownames = FALSE,
-                                             container = sketch,
-                                             extensions = c('Buttons','FixedColumns'),
-                                             options = list(
-                                                 pageLength = 50,
-                                                 lengthMenu = c(10, 25, 50, 100),
-                                                 dom = 'Bfrtip',
-                    buttons = list(
-                        list(extend = 'copy', title = text),
-                        list(extend = 'csv', title = text),
-                        list(extend = 'excel', title = text), 
-                        list(extend = 'pdf', title = text),
-                        list(extend = 'print', title = text)),
-                                                 scrollX = TRUE,
-                                                 autoWidth = FALSE,
-                                                 fixedColumns = list(leftColumns = oldlen - 2)))
-                output$resulttable = renderDataTable(
-                    values$datatable)
-                updatePickerInput(session, "vargroup", choices = varlist, selected = varlist[1])
-                
         }
         observeEvent(input$vargroup, {
             if (!is.null(input$vargroup) && str_length(input$vargroup) > 0){
@@ -1060,7 +1079,7 @@ server <- function(input, output, session){
                                                                        rownames = FALSE,
                                                                        extensions = c('Buttons','FixedColumns'),
                                                                        options = list(
-                                                                           pageLength = 500,
+                                                                           pageLength = 999,
                                                                            dom = 'Bfrtip',
                                                                            buttons = list(
                                                                                list(extend = 'copy', title = text),
