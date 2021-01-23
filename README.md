@@ -18,19 +18,19 @@ The work in progress can only query an individual year and an individual race an
 
 The following paragraph of information below this line is also in the "Information" tab of the application.
 
-Each query takes about 1 second, so adding a large number of years, races, and 
+ Each query takes about 1 second, so adding a large number of years, races, and 
         geographies will take an extremely long time for the data to load. Turns out 
         the API system is bad for loading multiple years simulatenously, as after 
-        all, in most case, loading all the years is not very useful.
-        So this shinyapp is not very useful in reality.It was unanticipated by me
+        all, in most case, loading all the years takes too long. It was unanticipated by me
         that it would be this inefficient to download the data from all the years from 
         the API for any variable. Also, I thought the data tables would be 
         consistent from year to year but they are not, which makes the program 
-        more likely to crash the more complicated the data request (especially 
+        less likely to produce a table successfully more complicated the data request (especially 
         adding multiple years and geographies) is. I only added MSAs, CSAs, and states
         as I believed the data would be consistent for regions
         with large population. This assumption too is wrong. Some geographies may work
         and others won't work even if the population size is large for these geographies.
+        If a table is not produced properly, the title of the table is replaced by an error message.
     
 Version: There are two versions of the American Community Survey 
         available, the ACS 1-Year and the ACS 5-Year. The ACS 3-Year
