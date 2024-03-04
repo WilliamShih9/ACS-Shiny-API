@@ -1,7 +1,7 @@
 # STA141B-API
 API Project for STA141B
 
-For ACS 1-Year Detailed Tables (2005-2019) and ACS 5-Year Detailed Tables (2009-2019).
+For ACS 1-Year Detailed Tables (2005-2022) and ACS 5-Year Detailed Tables (2009-2022).
 
 All the graphs in the repository were generated automatically using the shiny application.
 
@@ -10,7 +10,7 @@ The updated link to the application is https://williamshih.shinyapps.io/version2
 This version can have multiple years, multiple geographies, and multiple races selected. The updated 
 application can also download data, ,convert from wide format to narrow format, graph data, download the graph, and download the raw data used to make the graph.
 Also, the updated version uses a sidebar, which allows for viewing the table in full screen after toggling the sidebar.
-The updated version also adds 2019.
+The updated version also adds 2019, 2021, and 2022.
 
 The work in progress link is https://williamshih.shinyapps.io/test/.
 

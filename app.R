@@ -17,7 +17,7 @@ library(shinyWidgets)
 temp = tempfile()
 
 
-file = "https://fred.stlouisfed.org/graph/fredgraph.csv?bgcolor=%23e1e9f0&chart_type=line&drp=0&fo=open%20sans&graph_bgcolor=%23ffffff&height=450&mode=fred&recession_bars=on&txtcolor=%23444444&ts=12&tts=12&width=1168&nt=0&thu=0&trc=0&show_legend=yes&show_axis_titles=yes&show_tooltip=yes&id=CPALTT01USA661S&scale=left&cosd=1960-01-01&coed=2019-01-01&line_color=%234572a7&link_values=false&line_style=solid&mark_type=none&mw=3&lw=2&ost=-99999&oet=99999&mma=0&fml=a&fq=Annual&fam=avg&fgst=lin&fgsnd=2009-06-01&line_index=1&transformation=lin&vintage_date=2021-01-08&revision_date=2021-01-08&nd=1960-01-01"
+file = "https://fred.stlouisfed.org/graph/fredgraph.csv?bgcolor=%23e1e9f0&chart_type=line&drp=0&fo=open%20sans&graph_bgcolor=%23ffffff&height=450&mode=fred&recession_bars=on&txtcolor=%23444444&ts=12&tts=12&width=1317&nt=0&thu=0&trc=0&show_legend=yes&show_axis_titles=yes&show_tooltip=yes&id=CPALTT01USA661S&scale=left&cosd=1960-01-01&coed=2023-01-01&line_color=%234572a7&link_values=false&line_style=solid&mark_type=none&mw=3&lw=2&ost=-99999&oet=99999&mma=0&fml=a&fq=Annual&fam=avg&fgst=lin&fgsnd=2020-02-01&line_index=1&transformation=lin&vintage_date=2024-03-04&revision_date=2024-03-04&nd=1960-01-01"
 download.file(file, temp)
 
 
@@ -66,7 +66,7 @@ CSA_code = as.list(df4[[1]])
 names(CSA_code) = paste0(df4[[2]], " CSA")
 
 ###### Getting State Codes
-states = "www2.census.gov/programs-surveys/popest/geographies/2019/state-geocodes-v2019.xlsx" 
+states = "www2.census.gov/programs-surveys/popest/geographies/2022/state-geocodes-v2022.xlsx" 
 GET(states, write_disk(tf <- tempfile(fileext = ".xlsx")))
 df5 <- read_xlsx(tf, skip = 4)
 df5 = filter(df5, `State (FIPS)` != "00")
@@ -79,7 +79,7 @@ names(USA_code) = "United States"
 all_codes = c(USA_code, MSA_code, CSA_code, State_code)
 
 name = "https://api.census.gov/data/"
-year = "2018"
+year = "2022"
 
 between = "/acs/acs"
 
@@ -87,8 +87,8 @@ acs_version = "5"
 api_key = "&key=897f6218f014c945b472ba926f87840f4e196efc"
 
 
-acs5year_range = 2009:2019
-acs1year_range = 2005:2019
+acs5year_range = c(2009:2019,2021:2022)
+acs1year_range = c(2005:2019,2021:2022)
 
 allvarnames = paste0(name, year, between, acs_version, "/groups/")
 acs5 = paste0(name, paste0(acs5year_range), between, acs_version, "/groups/")
@@ -268,7 +268,7 @@ get_mass_data <- function(list1, inflation = FALSE){
                                data[2, str_which(data[1,], "[0-9]M$")])
                #combine[,2] = map_chr(combine[,2], function(x){if (x == "-555555555"){return("0")} else{return(x)}})
                if (inflation){
-                 adjust = CPI[['2019']]/CPI[[substr(x, 29, 32)]]
+                 adjust = CPI[['2022']]/CPI[[substr(x, 29, 32)]]
                  combine[,2] = as.character(round(as.numeric(combine[,2])*adjust))
                  combine[,1] = as.character(round(as.numeric(combine[,1])*adjust))
                 
@@ -310,7 +310,7 @@ get_data <- function(link1, link2, inflation = FALSE){
     data_index = data_index[1:length(margin_index)]
     actualdata = combineddata[data_index,]   
     if (inflation){
-        adjust = CPI[['2019']]/CPI[[substr(link1, 29, 32)]]
+        adjust = CPI[['2022']]/CPI[[substr(link1, 29, 32)]]
         if (is.null(dim(actualdata))){
             actualdata = t(as.matrix(actualdata))
             margin = t(as.matrix(margin))
@@ -379,8 +379,8 @@ acsdata_All5 = filter(acsdata, type == 5 & (Race == "Total" | (Group == "Other" 
 var_group1 = sapply(group_split(acsdata_All1,Group), function(x) unique(x$var_descriptions))
 var_group5 = sapply(group_split(acsdata_All5,Group), function(x) unique(x$var_descriptions))
 
-#ACS 1-Year is from 2005-2019
-#ACS 5-Year is from 2009-2019
+#ACS 1-Year is from 2005-2022
+#ACS 5-Year is from 2009-2022
 
 wrapper <- function(x, ...)({
     paste(strwrap(x, ...), collapse = "\n")
@@ -396,7 +396,7 @@ ui <- fluidPage(
             }"
         )
     ),
-    titlePanel("American Community Survey"),
+    titlePanel("American Community Survey (2005-2022)"),
     sidebarLayout(
         sidebarPanel(id = "Sidebar",
             selectizeInput("version", "Version", c("ACS 1-Year", "ACS 5-Year"),
@@ -407,7 +407,7 @@ ui <- fluidPage(
             selected = "Sex By Age", width = "100%"),
         tags$div(id = "div_id"), 
             pickerInput("yr", "Year", paste0(acs5year_range),
-                           selected = "2019", multiple = TRUE, width = "100%",
+                           selected = "2022", multiple = TRUE, width = "100%",
                         options = list(`actions-box` = TRUE)),
             pickerInput("race", "Race", choices = NULL,
                            multiple = TRUE, width = "100%"),        
@@ -421,7 +421,7 @@ ui <- fluidPage(
                prettyCheckbox("error", "Include Margin of Error (90%)",
                value = TRUE,
                icon = icon("check")),
-               prettyCheckbox("inflation", "Inflated-Adjusted 2019 dollars (CPI)",
+               prettyCheckbox("inflation", "Inflated-Adjusted 2022 dollars (CPI)",
                value = FALSE,
                icon = icon("check")),
                prettyCheckbox("simplify", "Minimize Column Descriptions",
@@ -584,7 +584,7 @@ server <- function(input, output, session){
     # values$data_complete[[7]] is the graph itself
     # buffer is the filtered acsdata so that filtering again takes less time
     values = reactiveValues(data_complete = list(1,2,3,4,5,6), buffer = acsdata, var_description = "Sex By Age", 
-                            year = "2019", version = "5", group = "Non-Income By Race")
+                            year = "2022", version = "5", group = "Non-Income By Race")
     observeEvent(input$version, {    
         if(input$version == "ACS 1-Year"){
             values$version = 1
@@ -842,6 +842,10 @@ server <- function(input, output, session){
                     }
                     else{
                         newlen = ncol(result)
+                        for (i in (oldlen-1):newlen){
+                            result[,i] = replace_na(result[,i], "-1")
+                            result[,i] = prettyNum(result[,i],preserve.width = "common",big.mark = ",")
+                        }
                     }
                 } else if (length(margin) == 2){
                     sp = data.table::transpose(str_split(margin[1], "!!"))[-1]
@@ -1040,7 +1044,7 @@ server <- function(input, output, session){
                         }
                         data_to_graph = data_to_graph[-c(1:count_layers, other_counts)]
                         transpose_data = t(data_to_graph)
-                        transpose_data = as.tibble(transpose_data)
+                        transpose_data = as_tibble(transpose_data)
                         if(ncol(transpose_data) == 1 && ncol(values$data_complete[[5]]) == 1){
                             
                         }
@@ -1073,6 +1077,13 @@ server <- function(input, output, session){
                                     Estimate = as.numeric(gsub(",", "",value)))
                         }
                         text = values$data_complete[[2]]
+                        print(text)
+                        if(nchar(text) > 60){
+                          positions = unlist(gregexpr(' ', text))
+                          position_space = positions[positions < 60][length(positions[positions < 60])]
+                          text = paste0(substring(text, 1, position_space), "\n", substring(text, position_space+1))
+                        }
+                        print(text)
                         text = paste0(text, "-", input$vargroup)
                         output$graphtitle = renderText({text})
                         output$graphtable = renderDataTable({datatable(data,
@@ -1152,7 +1163,7 @@ server <- function(input, output, session){
                 paste(values$data_complete[[2]],'-Graph.png', sep = '')
             },
             content = function(file){
-                ggsave(file, type = 'cairo', plot = values$data_complete[[7]])
+                ggsave(file, type = 'cairo', width = 8, height = 6, plot = values$data_complete[[7]])
             }
         )
     })
