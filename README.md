@@ -1,5 +1,4 @@
-# STA141B-API
-API Project for STA141B
+# ACS-Shiny-API
 
 For ACS 1-Year Detailed Tables (2005-2022) and ACS 5-Year Detailed Tables (2009-2022).
 
