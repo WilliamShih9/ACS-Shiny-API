@@ -28,7 +28,7 @@ CPI[[2]] = CPI[[2]]/100
 '
 ################################
 CPI = read_csv("CPI.csv")
-CPI = setNames(as.list(CPI[[2]]/100), CPI[[1]])
+CPI = setNames(as.list(CPI[[2]]/100), year(CPI[[1]]))
 
 
 
@@ -421,7 +421,7 @@ ui <- fluidPage(
                prettyCheckbox("error", "Include Margin of Error (90%)",
                value = TRUE,
                icon = icon("check")),
-               prettyCheckbox("inflation", "Inflated-Adjusted 2022 dollars (CPI)",
+               prettyCheckbox("inflation", "Inflation-Adjusted 2022 dollars (CPI) (SEE Information tab)",
                value = FALSE,
                icon = icon("check")),
                prettyCheckbox("simplify", "Minimize Column Descriptions",
@@ -492,7 +492,7 @@ server <- function(input, output, session){
         as counting (counting households by income), not represented as income.
         So the 'Adjust for Inflation' option will wrongly change adjust
         for inflation when the underlying data is for counting. So
-        do not adjust for inflation if the underlying is the count.
+        do not adjust for inflation if the underlying data is the count.
         
         Detailed: There is another bug for the more detailed and less detailed
         option. For some years, more detailed is available and for some
